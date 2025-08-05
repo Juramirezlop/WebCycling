@@ -10,29 +10,35 @@ DB_HOST = "localhost"
 DB_PORT = "5432"
 
 # ===============================
-# DATOS DEL CICLISTA (ejemplo)
+# DATOS DEL CICLISTA
 # ===============================
-ciclista = "Luis Ortiz"
+ciclista = "Jose Alfonso Lopez"
 
 grandes_vueltas = [
+]
+
+# Mundiales (ruta y crono)
+mundiales = [
+]
+
+# Juegos Olímpicos (ruta y crono)
+juegos_olimpicos = [
 ]
 
 world_tour = [
 ]
 
-etapas = [
-]
-
-tours_continentales = [
-]
-
 # Nacionales (ruta y crono)
 nacionales = [
-    ("Campeonato Nacional de Ruta", 1947, 3),
 ]
 
-# 🆕 Carreras Sub-23
-sub23 = [
+campeones_continentales = [
+]
+
+# Inserta etapas y especifica tipo de carrera
+etapas = [
+    ("Vuelta Costa Rica", 1976, "Continental", 2),
+    ("Tour del Porvenir", 1982, "Sub-23", 1),
 ]
 
 # ===============================
@@ -43,13 +49,29 @@ def insert_data():
         dbname=DB_NAME, user=DB_USER, password=DB_PASS, host=DB_HOST, port=DB_PORT
     )
     cur = conn.cursor()
+    
+    def get_or_create_ciclista(cur, nombre):
+        # Buscar si ya existe
+        cur.execute("SELECT id FROM ciclistas WHERE nombre_ciclista = %s;", (nombre,))
+        row = cur.fetchone()
+        if row:
+            return row[0], False
+        
+        # Si no existe, insertarlo
+        cur.execute(
+            "INSERT INTO ciclistas (nombre_ciclista) VALUES (%s) RETURNING id;",
+            (nombre,)
+        )
+        new_id = cur.fetchone()[0]
+        return new_id, True 
 
-    # Insertar ciclista
-    cur.execute(
-        "INSERT INTO ciclistas (nombre_ciclista) VALUES (%s) RETURNING id;", (ciclista,)
-    )
-    ciclista_id = cur.fetchone()[0]
-    print(f"\n✅ Ciclista '{ciclista}' insertado con id {ciclista_id}\n")
+    ciclista_id, creado = get_or_create_ciclista(cur, ciclista)
+
+    if creado:
+        print(f"🚴 Nuevo ciclista agregado: {ciclista} (id {ciclista_id})")
+    else:
+        print(f"↩️ Usando ciclista existente: {ciclista} (id {ciclista_id})")
+
 
     def get_or_create_carrera(nombre, tipo, año):
         print(f"🔎 Buscando carrera: {nombre} ({año}, {tipo})")
@@ -87,6 +109,30 @@ def insert_data():
             (ciclista_id, carrera_id, pos),
         )
         print(f"✅ Resultado WT: {ciclista} {nombre} {año} -> {pos}°\n")
+    
+    # Mundiales
+    if mundiales:
+        print("🔎 Insertando Mundiales...")
+        for nombre, año, pos in mundiales:
+            carrera_id = get_or_create_carrera(nombre, "Mundial", año)
+            cur.execute(
+                "INSERT INTO resultados (ciclista_id, carrera_id, posicion) VALUES (%s, %s, %s);",
+                (ciclista_id, carrera_id, pos),
+            )
+            print(f"🌍 Mundial: {ciclista} {nombre} {año} -> {pos}°")
+        print("")
+
+    # Juegos Olímpicos
+    if juegos_olimpicos:
+        print("🔎 Insertando Juegos Olímpicos...")
+        for nombre, año, pos in juegos_olimpicos:
+            carrera_id = get_or_create_carrera(nombre, "Juegos Olímpicos", año)
+            cur.execute(
+                "INSERT INTO resultados (ciclista_id, carrera_id, posicion) VALUES (%s, %s, %s);",
+                (ciclista_id, carrera_id, pos),
+            )
+            print(f"🏅 JJOO: {ciclista} {nombre} {año} -> {pos}°")
+        print("")
 
     # Nacionales
     if nacionales:
@@ -100,45 +146,61 @@ def insert_data():
             print(f"✅ Nacional: {ciclista} {nombre} {año} -> {pos}°")
         print("")
     
-    # Sub-23 (clasificación general / podios)
-    if sub23:
-        print("🔎 Insertando resultados Sub-23...")
-        for nombre, año, pos in sub23:
-            carrera_id = get_or_create_carrera(nombre, "Sub23", año)
+    # Campeones de carreras continentales
+    if campeones_continentales:
+        print("🔎 Insertando campeonatos continentales...")
+        for nombre, año in campeones_continentales:
+            carrera_id = get_or_create_carrera(nombre, "Continental", año)
+
+            # Verificar si tiene continente asignado
+            cur.execute("SELECT continente FROM tours_continentales WHERE carrera_id = %s;", (carrera_id,))
+            row = cur.fetchone()
+            if not row or not row[0]:  # no existe registro o continente vacío
+                continente = input(f"🌍 La carrera '{nombre} {año}' no tiene continente asignado. Ingrese continente: ")
+                cur.execute(
+                    "INSERT INTO tours_continentales (carrera_id, continente) VALUES (%s, %s);",
+                    (carrera_id, continente)
+                )
+                print(f"✅ Continente '{continente}' asignado a {nombre} {año}")
+
+            # Insertar resultado del campeón
             cur.execute(
                 "INSERT INTO resultados (ciclista_id, carrera_id, posicion) VALUES (%s, %s, %s);",
-                (ciclista_id, carrera_id, pos),
+                (ciclista_id, carrera_id, 1)
             )
-            print(f"✅ Sub-23: {ciclista} {nombre} {año} -> {pos}°\n")
-
-    # Etapas
-    if etapas:
-        print("🔎 Insertando etapas...")
-        for nombre, año, desc in etapas:
-            carrera_id = get_or_create_carrera(nombre, "Etapa", año)
-            cur.execute(
-                "INSERT INTO etapas (ciclista_id, carrera_id, resultado_etapa) VALUES (%s, %s, %s);",
-                (ciclista_id, carrera_id, desc),
-            )
-            print(f"✅ Etapa: {nombre} {año} -> {desc}")
+            print(f"🏆 {ciclista} campeón de {nombre} {año}")
         print("")
 
-    # Tours Continentales
-    if tours_continentales:
-        print("🔎 Insertando tours continentales...")
-        for nombre, año, continente in tours_continentales:
-            carrera_id = get_or_create_carrera(nombre, "Continental", año)
+    # Insertar etapas
+    if etapas:
+        print("🔎 Insertando etapas...")
+        for nombre, año, tipo, cantidad in etapas:
+            carrera_id = get_or_create_carrera(nombre, tipo, año)
+
+            # Si es carrera Continental, verificar si tiene continente asignado
+            if tipo == "Continental":
+                cur.execute("SELECT continente FROM tours_continentales WHERE carrera_id = %s;", (carrera_id,))
+                row = cur.fetchone()
+                if not row:  # no tiene continente
+                    continente = input(f"🌍 La carrera '{nombre} {año}' no tiene continente asignado. Ingrese continente: ")
+                    cur.execute(
+                        "INSERT INTO tours_continentales (carrera_id, continente) VALUES (%s, %s);",
+                        (carrera_id, continente)
+                    )
+                    print(f"✅ Continente '{continente}' asignado a {nombre} {año}")
+
+            # Insertar la etapa
             cur.execute(
-                "INSERT INTO tours_continentales (ciclista_id, carrera_id, continente) VALUES (%s, %s, %s);",
-                (ciclista_id, carrera_id, continente),
+                "INSERT INTO etapas (ciclista_id, carrera_id, cantidad_etapas) VALUES (%s, %s, %s);",
+                (ciclista_id, carrera_id, cantidad),
             )
-            print(f"✅ Tour continental: {nombre} {año} ({continente})")
+            print(f"✅ Etapas: {nombre} {año} ({tipo}) -> {cantidad} ganadas")
+        print("")
 
     conn.commit()
     cur.close()
     conn.close()
-    print("\n🚴‍♂️ Datos insertados exitosamente.\n")
-
+    print("🚴‍♂️ Datos insertados exitosamente.\n")
 
 if __name__ == "__main__":
     insert_data()

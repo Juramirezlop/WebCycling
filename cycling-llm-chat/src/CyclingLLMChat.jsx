@@ -5,7 +5,7 @@ const CyclingLLMChat = () => {
   const [messages, setMessages] = useState([
     {
       type: 'assistant',
-      content: '¡Hola! Soy tu asistente especializado en ciclismo colombiano. Pregúntame sobre historias, campeones, estadísticas y resultados del ciclismo nacional. 🚴‍♂️',
+      content: 'Pregúntame sobre campeones, estadísticas y resultados del ciclismo Colombiano. 🚴‍♂️',
       timestamp: new Date()
     }
   ]);
